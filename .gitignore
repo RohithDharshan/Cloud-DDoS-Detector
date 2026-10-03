@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Large preprocessed arrays (regenerate via `python src/preprocess.py`)
+model/artifacts/*.npy
+
+# Session backups / scratch (not part of the project)
+model/artifacts_synthetic_backup/
+frontend/sample_flows_synthetic_backup.json
+ruvector.db
+
+# OS
+.DS_Store

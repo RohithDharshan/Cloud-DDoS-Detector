@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cloud DDoS Detector — Live Monitor</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel2:#161e29; --border:#232d3a;
+    --text:#e6edf3; --muted:#8b98a5; --accent:#2dd4bf; --accent2:#facc15;
+    --danger:#f87171; --safe:#4ade80; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  header{margin-bottom:28px}
+  header h1{margin:0 0 6px;font-size:1.6rem;letter-spacing:-0.02em}
+  header p{margin:0;color:var(--muted);font-size:.92rem}
+  .badge-live{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);margin-left:10px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.on{background:var(--safe);box-shadow:0 0 8px var(--safe)}
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:20px 22px; margin-bottom:22px;
+  }
+  .card h2{margin:0 0 14px;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+  .card h2 .n{color:var(--accent);font-family:var(--mono);font-size:.85rem}
+
+  /* Attack simulation */
+  .sim-sub{color:var(--muted);font-size:.85rem;margin:-6px 0 18px}
+  .sim-mode{display:inline-block;flex-shrink:0;font-size:.7rem;font-family:var(--mono);padding:4px 10px;border-radius:999px;background:rgba(45,212,191,.12);color:var(--accent);border:1px solid rgba(45,212,191,.3);transition:background .3s,color .3s,border-color .3s}
+  .sim-mode.live{background:rgba(250,204,21,.12);color:var(--accent2);border-color:rgba(250,204,21,.35)}
+  .sim-wrap{position:relative;background:#070a0e;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .sim-wrap svg{display:block;width:100%;height:auto}
+  .sim-ring{transform-box:fill-box;transform-origin:center;animation:simSpin 7s linear infinite}
+  @keyframes simSpin{to{transform:rotate(360deg)}}
+  .sim-shield{transform-box:fill-box;transform-origin:center}
+  .sim-shield.active{animation:simPulse .55s ease-out}
+  @keyframes simPulse{0%{transform:scale(1)}40%{transform:scale(1.16)}100%{transform:scale(1)}}
+  .sim-stagept{transition:fill .25s ease, filter .25s ease}
+  .sim-stagept.lit{fill:var(--accent);filter:drop-shadow(0 0 5px rgba(45,212,191,.9))}
+  .sim-stagelabel{fill:var(--muted);font-family:var(--mono)}
+  .sim-badge{opacity:0;transform:translateY(6px) scale(.92);transition:opacity .25s ease, transform .25s ease;font-family:var(--mono);font-weight:700}
+  .sim-badge.show{opacity:1;transform:translateY(0) scale(1)}
+  .sim-server{transform-box:fill-box;transform-origin:center}
+  .sim-server.active{animation:simPulse .5s ease-out}
+  .sim-legend{display:flex;flex-wrap:wrap;gap:22px;margin-top:14px;font-size:.78rem;color:var(--muted)}
+  .sim-legend .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+
+  /* Dataset */
+  .ds-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .ds-bar{height:10px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:6px;background:var(--panel2)}
+  .ds-bar .seg-benign{background:var(--safe)}
+  .ds-bar .seg-attack{background:var(--danger)}
+  .ds-legend{display:flex;gap:18px;font-size:.78rem;color:var(--muted);margin-bottom:16px}
+  .ds-legend .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+  .ds-source{color:var(--muted);font-size:.82rem;margin:-6px 0 16px}
+  .ds-table-wrap{overflow-x:auto}
+  #datasetTable{font-size:.78rem}
+  #datasetTable td,#datasetTable th{white-space:nowrap}
+  .pill.ddos{background:rgba(248,113,113,.15);color:var(--danger);padding:2px 8px;border-radius:999px;font-weight:700;font-size:.72rem}
+  .pill.benign2{background:rgba(74,222,128,.15);color:var(--safe);padding:2px 8px;border-radius:999px;font-weight:700;font-size:.72rem}
+
+  /* Pipeline */
+  .pipeline{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:4px;position:relative}
+  .stage{
+    flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--border);
+    border-radius:10px;padding:14px 12px;text-align:center;position:relative;
+    transition:border-color .3s ease, box-shadow .3s ease;
+  }
+  .stage.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset, 0 0 18px rgba(45,212,191,.3)}
+  .stage .icon{font-size:1.4rem;margin-bottom:6px}
+  .stage h3{margin:0 0 4px;font-size:.85rem}
+  .stage p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.35}
+  .arrow{display:flex;align-items:center;justify-content:center;width:28px;color:var(--muted);font-size:1.1rem;flex-shrink:0}
+  .pipe-dot{
+    position:absolute;width:12px;height:12px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent),0 0 2px #fff;transform:translate(-50%,-50%);
+    transition:left .6s cubic-bezier(.4,0,.2,1), top .6s cubic-bezier(.4,0,.2,1), opacity .25s ease;
+    pointer-events:none;z-index:5;top:-999px;left:-999px;opacity:0;
+  }
+  .pipe-dot.no-anim{transition:none}
+
+  /* Metrics */
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+  tr.best td{color:var(--accent)}
+  .metric-note{color:var(--muted);font-size:.78rem;margin-top:10px}
+
+  /* Controls */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  button{
+    background:var(--accent);color:#0b0f14;border:none;border-radius:8px;
+    padding:10px 16px;font-weight:600;font-size:.85rem;cursor:pointer;
+  }
+  button.secondary{background:transparent;color:var(--text);border:1px solid var(--border)}
+  button.danger{background:var(--danger);color:#1a0a0a}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button:hover:not(:disabled){filter:brightness(1.08)}
+
+  /* Stats row */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .stat .v{font-family:var(--mono);font-size:1.4rem;font-weight:600}
+  .stat .l{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.03em}
+  .stat.attack .v{color:var(--danger)}
+  .stat.benign .v{color:var(--safe)}
+  .stat.acc .v{color:var(--accent2)}
+
+  /* Live feed */
+  .feed{max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:10px}
+  .feed-row{
+    display:grid;grid-template-columns:90px 90px 90px 80px 70px 1fr;gap:8px;
+    padding:8px 12px;font-family:var(--mono);font-size:.78rem;border-bottom:1px solid var(--border);
+    align-items:center;
+  }
+  .feed-row.head{color:var(--muted);font-size:.68rem;text-transform:uppercase;position:sticky;top:0;background:var(--panel2)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:700}
+  .pill.attack{background:rgba(248,113,113,.15);color:var(--danger)}
+  .pill.benign{background:rgba(74,222,128,.15);color:var(--safe)}
+  .mismatch{color:var(--accent2)}
+  .empty-feed{padding:24px;text-align:center;color:var(--muted);font-size:.85rem}
+
+  /* Manual tester */
+  .tester-result{margin-top:14px;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);display:none}
+  .tester-result.show{display:block}
+  .tester-result .verdict{font-size:1.3rem;font-weight:700;margin-bottom:6px}
+  .tester-result .verdict.attack{color:var(--danger)}
+  .tester-result .verdict.benign{color:var(--safe)}
+  .tester-result .meta{color:var(--muted);font-size:.82rem}
+
+  .conn-warning{display:none;background:rgba(248,113,113,.1);border:1px solid var(--danger);color:var(--danger);
+    padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:.85rem}
+  .conn-warning.show{display:block}
+
+  footer{color:var(--muted);font-size:.75rem;text-align:center;margin-top:30px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+  @media (max-width:700px){
+    .pipeline{flex-direction:column}
+    .arrow{transform:rotate(90deg);width:auto;padding:2px 0}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .feed-row{grid-template-columns:70px 70px 70px 1fr;font-size:.7rem}
+    .feed-row span.hide-sm{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Cloud DDoS Detector<span class="badge-live"><span class="dot" id="connDot"></span><span id="connText">checking service…</span></span></h1>
+    <p>ML-based intrusion detection for cloud environments — Random Forest classifier trained on CICIDS2017 flow features, served as a real-time monitoring API.</p>
+  </header>
+
+  <div class="conn-warning" id="connWarning">
+    Can't reach the detection service at <code id="apiBaseLabel"></code>. Start it with
+    <code>uvicorn src.service:app --host 0.0.0.0 --port 8000</code> or <code>docker compose up</code>,
+    then reload this page.
+  </div>
+
+  <section class="card">
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      <h2 style="margin:0"><span class="n">01</span> Live defense in action</h2>
+      <span class="sim-mode" id="simMode">Ambient demo</span>
+    </div>
+    <p class="sim-sub">A botnet throws DDoS traffic at the server while real users keep browsing — watch the ML pipeline tell them apart and block the attack, live.</p>
+    <div class="sim-wrap">
+      <svg id="simSvg" viewBox="0 0 1000 320" xmlns="http://www.w3.org/2000/svg">
+        <path d="M70,50 Q300,40 500,170" stroke="#1b2531" stroke-width="2" fill="none" stroke-dasharray="4 7"/>
+        <path d="M70,130 Q300,110 500,170" stroke="#1b2531" stroke-width="2" fill="none" stroke-dasharray="4 7"/>
+        <path d="M70,210 Q300,230 500,170" stroke="#1b2531" stroke-width="2" fill="none" stroke-dasharray="4 7"/>
+        <path d="M70,290 Q300,290 500,170" stroke="#1b2531" stroke-width="2" fill="none" stroke-dasharray="4 7"/>
+        <path d="M500,170 L930,170" stroke="#1b2531" stroke-width="2" fill="none" stroke-dasharray="4 7"/>
+
+        <g>
+          <circle cx="70" cy="50" r="24" fill="#160f10" stroke="#f87171" stroke-width="2"/>
+          <text x="70" y="59" text-anchor="middle" font-size="24">&#128128;</text>
+          <text x="70" y="92" text-anchor="middle" font-size="12" fill="#9aa7b4">Attacker</text>
+        </g>
+        <g>
+          <circle cx="70" cy="130" r="24" fill="#160f10" stroke="#f87171" stroke-width="2"/>
+          <text x="70" y="139" text-anchor="middle" font-size="24">&#128128;</text>
+          <text x="70" y="172" text-anchor="middle" font-size="12" fill="#9aa7b4">Attacker</text>
+        </g>
+        <g>
+          <circle cx="70" cy="210" r="24" fill="#160f10" stroke="#f87171" stroke-width="2"/>
+          <text x="70" y="219" text-anchor="middle" font-size="24">&#128128;</text>
+          <text x="70" y="252" text-anchor="middle" font-size="12" fill="#9aa7b4">Attacker</text>
+        </g>
+        <g>
+          <circle cx="70" cy="290" r="24" fill="#0f1a16" stroke="#4ade80" stroke-width="2"/>
+          <text x="70" y="299" text-anchor="middle" font-size="22">&#128100;</text>
+          <text x="70" y="312" text-anchor="middle" font-size="12" fill="#9aa7b4">Legit user</text>
+        </g>
+
+        <g>
+          <circle class="sim-ring" cx="500" cy="170" r="56" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="3 6" opacity="0.6"/>
+          <g class="sim-shield" id="simShield">
+            <circle cx="500" cy="170" r="42" fill="#0f1620" stroke="#2dd4bf" stroke-width="3"/>
+            <text x="500" y="182" text-anchor="middle" font-size="36">&#128737;&#65039;</text>
+          </g>
+          <text x="500" y="230" text-anchor="middle" font-size="12" fill="#9aa7b4">ML Pipeline</text>
+        </g>
+
+        <g id="simStages">
+          <circle class="sim-stagept" data-stage="0" cx="420" cy="255" r="8" fill="#232d3a"/>
+          <circle class="sim-stagept" data-stage="1" cx="460" cy="255" r="8" fill="#232d3a"/>
+          <circle class="sim-stagept" data-stage="2" cx="500" cy="255" r="8" fill="#232d3a"/>
+          <circle class="sim-stagept" data-stage="3" cx="540" cy="255" r="8" fill="#232d3a"/>
+          <circle class="sim-stagept" data-stage="4" cx="580" cy="255" r="8" fill="#232d3a"/>
+          <text class="sim-stagelabel" x="420" y="276" text-anchor="middle" font-size="10">Clean</text>
+          <text class="sim-stagelabel" x="460" y="276" text-anchor="middle" font-size="10">Scale</text>
+          <text class="sim-stagelabel" x="500" y="276" text-anchor="middle" font-size="10">PCA</text>
+          <text class="sim-stagelabel" x="540" y="276" text-anchor="middle" font-size="10">RF</text>
+          <text class="sim-stagelabel" x="580" y="276" text-anchor="middle" font-size="10">Verdict</text>
+        </g>
+
+        <text class="sim-badge" id="simBadge" x="500" y="95" text-anchor="middle" font-size="20"></text>
+
+        <g class="sim-server" id="simServer">
+          <circle cx="930" cy="170" r="28" fill="#0f1620" stroke="#4ade80" stroke-width="2.5"/>
+          <text x="930" y="180" text-anchor="middle" font-size="26">&#128421;&#65039;</text>
+        </g>
+        <text x="930" y="218" text-anchor="middle" font-size="12" fill="#9aa7b4">Protected server</text>
+      </svg>
+    </div>
+    <div class="sim-legend">
+      <span><span class="sw" style="background:#f87171"></span>Attacker traffic</span>
+      <span><span class="sw" style="background:#4ade80"></span>Legitimate traffic</span>
+      <span><span class="sw" style="background:#2dd4bf"></span>ML pipeline analyzing</span>
+      <span>Click <b>Start monitoring</b> below to drive this from the real model instead of the ambient demo.</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">02</span> Dataset</h2>
+    <p class="ds-source" id="dsSource">loading dataset info…</p>
+    <div class="ds-stats">
+      <div class="stat"><div class="v" id="dsRows">–</div><div class="l">Real flow records</div></div>
+      <div class="stat"><div class="v" id="dsFeatures">–</div><div class="l">Raw features / flow</div></div>
+      <div class="stat benign"><div class="v" id="dsBenign">–</div><div class="l">Benign flows</div></div>
+      <div class="stat attack"><div class="v" id="dsAttack">–</div><div class="l">DDoS flows</div></div>
+    </div>
+    <div class="ds-bar" id="dsBar"></div>
+    <div class="ds-legend">
+      <span><span class="sw" style="background:var(--safe)"></span>BENIGN</span>
+      <span><span class="sw" style="background:var(--danger)"></span>DDoS</span>
+    </div>
+    <div class="ds-table-wrap">
+      <table id="datasetTable">
+        <thead><tr id="dsTableHead"></tr></thead>
+        <tbody id="dsTableBody"><tr><td style="color:var(--muted)">loading sample rows…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">03</span> How it works</h2>
+    <p class="sim-sub">Watch a record travel the exact path a real flow takes: pulled from the dataset, sent through preprocessing, and used by the model to reach a verdict.</p>
+    <div class="pipeline" id="pipeline">
+      <div class="stage" id="pipeStage0"><div class="icon">🗂️</div><h3>Dataset</h3><p>Taken from the real CIC-IDS2017 CSV — 225,745 flows, 78 features each</p></div>
+      <div class="arrow">→</div>
+      <div class="stage" id="pipeStage1"><div class="icon">🧹</div><h3>Preprocess</h3><p>Sent through cleaning + StandardScaler normalization (fit on training data)</p></div>
+      <div class="arrow">→</div>
+      <div class="stage" id="pipeStage2"><div class="icon">📉</div><h3>PCA</h3><p>Compressed: 78 → <span id="pcaDim">60</span> principal components</p></div>
+      <div class="arrow">→</div>
+      <div class="stage" id="pipeStage3"><div class="icon">🌲</div><h3>Random Forest</h3><p>Used by the trained classifier to score the flow</p></div>
+      <div class="arrow">→</div>
+      <div class="stage" id="pipeStage4"><div class="icon">🚨</div><h3>Verdict</h3><p>BENIGN or ATTACK + attack probability, returned in <span id="latencyHint">~ms</span></p></div>
+      <div class="pipe-dot" id="pipeDot"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">04</span> Model performance</h2>
+    <table id="metricsTable">
+      <thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>ROC-AUC</th><th>Train time</th></tr></thead>
+      <tbody><tr><td colspan="7" style="color:var(--muted)">loading…</td></tr></tbody>
+    </table>
+    <p class="metric-note">Reference paper (Abiramasundari &amp; Ramaswamy, Scientific Reports 2025) reports 98.9% accuracy for Random Forest on real CICIDS2017 (5-day, multi-attack dataset). Figures above are trained on the real CIC-IDS2017 Friday-afternoon DDoS capture (see Dataset section above) — a single-day binary BENIGN-vs-DDoS task, which is why scores land a bit above the paper's multi-day/multi-attack benchmark.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">05</span> Live traffic monitor</h2>
+    <div class="controls">
+      <button id="startBtn">▶ Start monitoring</button>
+      <button id="stopBtn" class="secondary" disabled>⏸ Stop</button>
+      <button id="resetBtn" class="secondary">↺ Reset</button>
+      <button id="speedBtn" class="secondary">Speed: normal</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="statTotal">0</div><div class="l">Flows analyzed</div></div>
+      <div class="stat benign"><div class="v" id="statBenign">0</div><div class="l">Classified benign</div></div>
+      <div class="stat attack"><div class="v" id="statAttack">0</div><div class="l">Attacks detected</div></div>
+      <div class="stat acc"><div class="v" id="statAcc">–</div><div class="l">Accuracy vs ground truth</div></div>
+    </div>
+    <div class="feed" id="feed">
+      <div class="feed-row head">
+        <span>Time</span><span>True label</span><span>Predicted</span><span class="hide-sm">P(attack)</span><span class="hide-sm">Latency</span><span>Result</span>
+      </div>
+      <div class="empty-feed" id="emptyFeed">Press "Start monitoring" to stream sample traffic through the live model.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">06</span> Try it yourself</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:-6px">Send one real flow record — picked at random from held-out samples — straight to the model.</p>
+    <div class="controls">
+      <button id="tryBenign" class="secondary">Send a benign-labeled flow</button>
+      <button id="tryAttack" class="danger">Send a DDoS-labeled flow</button>
+    </div>
+    <div class="tester-result" id="testerResult">
+      <div class="verdict" id="testerVerdict">—</div>
+      <div class="meta" id="testerMeta"></div>
+    </div>
+  </section>
+
+  <footer>
+    Cloud Computing (23N014) team project — DDoS/intrusion detection service. Dashboard talks to the FastAPI
+    service at <code id="apiBaseFooter"></code> — run both on the same machine for the demo.
+  </footer>
+</div>
+
+<script>
+const API_BASE = window.location.origin; // dashboard is served BY the same FastAPI app
+document.getElementById('apiBaseLabel').textContent = API_BASE;
+document.getElementById('apiBaseFooter').textContent = API_BASE;
+
+let sampleFlows = [];
+let streamTimer = null;
+let streamIndex = 0;
+let speedMs = 700;
+const speeds = [700, 300, 1400];
+const speedLabels = ['normal', 'fast', 'slow'];
+let speedIdx = 0;
+
+let total = 0, benignCount = 0, attackCount = 0, correct = 0;
+
+// --- Attack simulation (SVG animation) --------------------------------
+const simSvg = document.getElementById('simSvg');
+const SHIELD = {x:500, y:170};
+const SERVER = {x:930, y:170};
+const ATTACK_SOURCES = [
+  {p0:{x:70,y:50},  p1:{x:300,y:40}},
+  {p0:{x:70,y:130}, p1:{x:300,y:110}},
+  {p0:{x:70,y:210}, p1:{x:300,y:230}},
+];
+const USER_SOURCE = {p0:{x:70,y:290}, p1:{x:300,y:290}};
+let ambientTimer = null;
+
+function bezierPoint(p0, p1, p2, t){
+  const x = (1-t)**2*p0.x + 2*(1-t)*t*p1.x + t**2*p2.x;
+  const y = (1-t)**2*p0.y + 2*(1-t)*t*p1.y + t**2*p2.y;
+  return {x, y};
+}
+
+function spawnTravelDot(p0, p1, p2, color, duration, onDone){
+  const ns = 'http://www.w3.org/2000/svg';
+  const dot = document.createElementNS(ns, 'circle');
+  dot.setAttribute('r', '6');
+  dot.setAttribute('fill', color);
+  dot.style.filter = 'drop-shadow(0 0 6px ' + color + ')';
+  simSvg.appendChild(dot);
+  const start = performance.now();
+  function frame(now){
+    const t = Math.min(1, (now - start) / duration);
+    const te = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+    const pt = bezierPoint(p0, p1, p2, te);
+    dot.setAttribute('cx', pt.x);
+    dot.setAttribute('cy', pt.y);
+    if(t < 1){ requestAnimationFrame(frame); }
+    else { dot.remove(); if(onDone) onDone(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function pulseShield(){
+  const shield = document.getElementById('simShield');
+  shield.classList.remove('active');
+  void shield.offsetWidth; // restart animation
+  shield.classList.add('active');
+}
+
+function pulseServer(){
+  const server = document.getElementById('simServer');
+  server.classList.remove('active');
+  void server.offsetWidth;
+  server.classList.add('active');
+}
+
+function lightStages(cb){
+  const stages = document.querySelectorAll('.sim-stagept');
+  stages.forEach(s => s.classList.remove('lit'));
+  let i = 0;
+  function step(){
+    if(i < stages.length){
+      stages[i].classList.add('lit');
+      i++;
+      setTimeout(step, 110);
+    } else {
+      setTimeout(() => { stages.forEach(s => s.classList.remove('lit')); }, 400);
+      if(cb) cb();
+    }
+  }
+  step();
+}
+
+function showBadge(kind){
+  const badge = document.getElementById('simBadge');
+  badge.textContent = kind === 'attack' ? '✕ BLOCKED' : '✓ ALLOWED';
+  badge.setAttribute('fill', kind === 'attack' ? '#f87171' : '#4ade80');
+  badge.classList.add('show');
+  setTimeout(() => badge.classList.remove('show'), 850);
+}
+
+function spawnPacket(kind){
+  const isAttack = kind === 'attack';
+  const src = isAttack
+    ? ATTACK_SOURCES[Math.floor(Math.random() * ATTACK_SOURCES.length)]
+    : USER_SOURCE;
+  const color = isAttack ? '#f87171' : '#4ade80';
+  spawnTravelDot(src.p0, src.p1, SHIELD, color, 850, () => {
+    pulseShield();
+    lightStages(() => {
+      showBadge(kind);
+      if(!isAttack){
+        spawnTravelDot(SHIELD, {x:720, y:170}, SERVER, '#4ade80', 450, pulseServer);
+      }
+    });
+  });
+}
+
+function startAmbientSim(){
+  if(ambientTimer) return;
+  ambientTimer = setInterval(() => {
+    if(!streamTimer){ spawnPacket(Math.random() < 0.57 ? 'attack' : 'benign'); }
+  }, 1500);
+}
+
+function setSimMode(isLive){
+  const label = document.getElementById('simMode');
+  label.textContent = isLive ? 'Driven by live model' : 'Ambient demo';
+  label.classList.toggle('live', isLive);
+}
+
+// --- Pipeline journey animation (Section 03) ---------------------------
+const pipeStages = [0,1,2,3,4].map(i => document.getElementById('pipeStage' + i));
+const pipeContainer = document.getElementById('pipeline');
+const pipeDot = document.getElementById('pipeDot');
+let pipeIndex = 0;
+
+function moveDotToStage(i){
+  const stage = pipeStages[i];
+  if(!stage || !pipeContainer || !pipeDot) return;
+  const cRect = pipeContainer.getBoundingClientRect();
+  const sRect = stage.getBoundingClientRect();
+  const x = sRect.left - cRect.left + sRect.width / 2;
+  const y = sRect.top - cRect.top + 10;
+  pipeDot.style.left = x + 'px';
+  pipeDot.style.top = y + 'px';
+  pipeDot.style.opacity = '1';
+}
+
+function resetDotToStart(){
+  pipeDot.classList.add('no-anim');
+  moveDotToStage(0);
+  pipeDot.style.opacity = '0';
+  void pipeDot.offsetWidth; // force reflow so the jump applies before transitions resume
+  pipeDot.classList.remove('no-anim');
+}
+
+function pipelineTick(){
+  pipeStages.forEach(s => s && s.classList.remove('active'));
+  if(pipeIndex >= pipeStages.length){
+    pipeDot.style.opacity = '0';
+    pipeIndex = 0;
+    setTimeout(() => {
+      resetDotToStart();
+      setTimeout(pipelineTick, 50);
+    }, 300);
+    return;
+  }
+  const stage = pipeStages[pipeIndex];
+  if(stage) stage.classList.add('active');
+  moveDotToStage(pipeIndex);
+  pipeIndex++;
+  setTimeout(pipelineTick, 750);
+}
+
+function startPipelineJourney(){
+  if(!pipeContainer || !pipeDot) return;
+  pipelineTick();
+}
+
+function setConn(ok){
+  document.getElementById('connDot').classList.toggle('on', ok);
+  document.getElementById('connText').textContent = ok ? 'service online' : 'service offline';
+  document.getElementById('connWarning').classList.toggle('show', !ok);
+}
+
+async function loadHealthAndMetrics(){
+  try{
+    const h = await fetch(API_BASE + '/health').then(r => r.json());
+    setConn(h.status === 'ok');
+    if(h.pca_components) document.getElementById('pcaDim').textContent = h.pca_components;
+  }catch(e){ setConn(false); }
+
+  try{
+    const m = await fetch(API_BASE + '/metrics').then(r => r.json());
+    renderMetrics(m);
+  }catch(e){ /* metrics endpoint optional / not trained yet */ }
+}
+
+function renderMetrics(rows){
+  const tbody = document.querySelector('#metricsTable tbody');
+  tbody.innerHTML = '';
+  if(!rows || !rows.length){
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">No metrics.json found — run src/train.py first.</td></tr>';
+    return;
+  }
+  const bestF1 = Math.max(...rows.map(r => r.f1));
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    if(r.f1 === bestF1) tr.className = 'best';
+    tr.innerHTML = `<td>${r.model}</td><td>${(r.accuracy*100).toFixed(2)}%</td><td>${(r.precision*100).toFixed(2)}%</td>
+      <td>${(r.recall*100).toFixed(2)}%</td><td>${(r.f1*100).toFixed(2)}%</td><td>${r.roc_auc.toFixed(3)}</td>
+      <td>${r.train_time_sec != null ? r.train_time_sec.toFixed(2)+'s' : '–'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadDatasetSummary(){
+  let d;
+  try{
+    d = await fetch('dataset_summary.json').then(r => r.json());
+  }catch(e){
+    document.getElementById('dsSource').textContent =
+      'No dataset_summary.json found — run src/export_dataset_summary.py after placing the real CSV.';
+    return;
+  }
+  document.getElementById('dsSource').innerHTML =
+    `<strong>${d.source}</strong> — <code>${d.source_file}</code> (${d.size_mb} MB, ${d.n_rows_raw.toLocaleString()} rows × ${d.n_columns} columns)`;
+  document.getElementById('dsRows').textContent = d.n_rows_clean.toLocaleString();
+  document.getElementById('dsFeatures').textContent = d.n_features;
+  document.getElementById('dsBenign').textContent = d.n_benign.toLocaleString();
+  document.getElementById('dsAttack').textContent = d.n_attack.toLocaleString();
+
+  const total = d.n_benign + d.n_attack;
+  const pctBenign = total ? (d.n_benign / total * 100) : 0;
+  document.getElementById('dsBar').innerHTML =
+    `<div class="seg-benign" style="width:${pctBenign}%"></div><div class="seg-attack" style="width:${100-pctBenign}%"></div>`;
+
+  const cols = d.preview_columns || [];
+  document.getElementById('dsTableHead').innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  const tbody = document.getElementById('dsTableBody');
+  tbody.innerHTML = '';
+  (d.preview_rows || []).forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = cols.map(c => {
+      if(c === 'Label'){
+        const isAttack = String(row[c]).toUpperCase() !== 'BENIGN';
+        return `<td><span class="pill ${isAttack ? 'ddos' : 'benign2'}">${row[c]}</span></td>`;
+      }
+      return `<td>${row[c]}</td>`;
+    }).join('');
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadSampleFlows(){
+  sampleFlows = await fetch('sample_flows.json').then(r => r.json());
+  // shuffle
+  for(let i = sampleFlows.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i+1));
+    [sampleFlows[i], sampleFlows[j]] = [sampleFlows[j], sampleFlows[i]];
+  }
+}
+
+function fmtTime(){
+  return new Date().toLocaleTimeString('en-US', {hour12:false});
+}
+
+function pushFeedRow({time, trueLabel, pred, prob, latency, ok}){
+  const empty = document.getElementById('emptyFeed');
+  if(empty) empty.remove();
+  const feed = document.getElementById('feed');
+  const row = document.createElement('div');
+  row.className = 'feed-row';
+  const predPill = pred === 'ATTACK'
+    ? '<span class="pill attack">ATTACK</span>' : '<span class="pill benign">BENIGN</span>';
+  row.innerHTML = `<span>${time}</span><span>${trueLabel}</span><span>${predPill}</span>
+    <span class="hide-sm">${prob.toFixed(3)}</span><span class="hide-sm">${latency.toFixed(0)}ms</span>
+    <span class="${ok ? '' : 'mismatch'}">${ok ? '✓ correct' : '✗ mismatch'}</span>`;
+  feed.appendChild(row);
+  feed.scrollTop = feed.scrollHeight;
+  // cap feed length for perf
+  while(feed.children.length > 200) feed.removeChild(feed.children[1]);
+}
+
+function updateStats(){
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statBenign').textContent = benignCount;
+  document.getElementById('statAttack').textContent = attackCount;
+  document.getElementById('statAcc').textContent = total ? ((correct/total)*100).toFixed(1)+'%' : '–';
+}
+
+async function processOne(){
+  if(!sampleFlows.length) return;
+  const item = sampleFlows[streamIndex % sampleFlows.length];
+  streamIndex++;
+  const t0 = performance.now();
+  try{
+    const res = await fetch(API_BASE + '/predict', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({features: item.features})
+    });
+    const data = await res.json();
+    const latency = performance.now() - t0;
+    const trueAttack = item.true_label.toUpperCase() !== 'BENIGN';
+    const ok = data.is_attack === trueAttack;
+    total++; correct += ok ? 1 : 0;
+    if(data.is_attack) attackCount++; else benignCount++;
+    pushFeedRow({time: fmtTime(), trueLabel: item.true_label, pred: data.prediction,
+      prob: data.attack_probability, latency, ok});
+    updateStats();
+    spawnPacket(data.is_attack ? 'attack' : 'benign');
+  }catch(e){
+    setConn(false);
+    stopStream();
+  }
+}
+
+function startStream(){
+  if(streamTimer) return;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  setSimMode(true);
+  streamTimer = setInterval(processOne, speedMs);
+  processOne();
+}
+function stopStream(){
+  clearInterval(streamTimer);
+  streamTimer = null;
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  setSimMode(false);
+}
+function resetStream(){
+  stopStream();
+  total = benignCount = attackCount = correct = 0;
+  streamIndex = 0;
+  updateStats();
+  document.getElementById('feed').innerHTML = `
+    <div class="feed-row head"><span>Time</span><span>True label</span><span>Predicted</span>
+      <span class="hide-sm">P(attack)</span><span class="hide-sm">Latency</span><span>Result</span></div>
+    <div class="empty-feed" id="emptyFeed">Press "Start monitoring" to stream sample traffic through the live model.</div>`;
+}
+
+document.getElementById('startBtn').addEventListener('click', startStream);
+document.getElementById('stopBtn').addEventListener('click', stopStream);
+document.getElementById('resetBtn').addEventListener('click', resetStream);
+document.getElementById('speedBtn').addEventListener('click', () => {
+  speedIdx = (speedIdx + 1) % speeds.length;
+  speedMs = speeds[speedIdx];
+  document.getElementById('speedBtn').textContent = 'Speed: ' + speedLabels[speedIdx];
+  if(streamTimer){ stopStream(); startStream(); }
+});
+
+async function tryManual(wantAttack){
+  const pool = sampleFlows.filter(f => (f.true_label.toUpperCase() !== 'BENIGN') === wantAttack);
+  if(!pool.length) return;
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  const t0 = performance.now();
+  const res = await fetch(API_BASE + '/predict', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({features: item.features})
+  });
+  const data = await res.json();
+  const latency = performance.now() - t0;
+  const box = document.getElementById('testerResult');
+  const verdict = document.getElementById('testerVerdict');
+  verdict.textContent = (data.is_attack ? '🚨 ' : '✅ ') + data.prediction;
+  verdict.className = 'verdict ' + (data.is_attack ? 'attack' : 'benign');
+  document.getElementById('testerMeta').textContent =
+    `True label: ${item.true_label} · attack probability: ${data.attack_probability.toFixed(3)} · latency: ${latency.toFixed(0)}ms`;
+  box.classList.add('show');
+}
+document.getElementById('tryBenign').addEventListener('click', () => tryManual(false));
+document.getElementById('tryAttack').addEventListener('click', () => tryManual(true));
+
+(async function init(){
+  await loadHealthAndMetrics();
+  await loadDatasetSummary();
+  await loadSampleFlows();
+  startAmbientSim();
+  startPipelineJourney();
+})();
+</script>
+</body>
+</html>

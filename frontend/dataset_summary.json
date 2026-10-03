@@ -1,0 +1,107 @@
+{
+  "source_file": "Friday-WorkingHours-Afternoon-DDoS.pcap_ISCX.csv",
+  "source": "CIC-IDS2017 (Canadian Institute for Cybersecurity, UNB) \u2014 Friday afternoon DDoS capture, official MachineLearningCSV release",
+  "size_mb": 73.6,
+  "n_rows_raw": 225745,
+  "n_rows_clean": 225711,
+  "n_columns": 79,
+  "n_features": 78,
+  "n_benign": 97686,
+  "n_attack": 128025,
+  "label_breakdown": {
+    "DDoS": 128025,
+    "BENIGN": 97686
+  },
+  "preview_columns": [
+    "Destination Port",
+    "Flow Duration",
+    "Total Fwd Packets",
+    "Total Backward Packets",
+    "Flow Bytes/s",
+    "Flow Packets/s",
+    "SYN Flag Count",
+    "Label"
+  ],
+  "preview_rows": [
+    {
+      "Destination Port": 80,
+      "Flow Duration": 144950,
+      "Total Fwd Packets": 3,
+      "Total Backward Packets": 5,
+      "Flow Bytes/s": 80213.867,
+      "Flow Packets/s": 55.191,
+      "SYN Flag Count": 0,
+      "Label": "DDoS"
+    },
+    {
+      "Destination Port": 8080,
+      "Flow Duration": 995751,
+      "Total Fwd Packets": 3,
+      "Total Backward Packets": 3,
+      "Flow Bytes/s": 18.077,
+      "Flow Packets/s": 6.026,
+      "SYN Flag Count": 0,
+      "Label": "BENIGN"
+    },
+    {
+      "Destination Port": 80,
+      "Flow Duration": 1850289,
+      "Total Fwd Packets": 3,
+      "Total Backward Packets": 4,
+      "Flow Bytes/s": 6287.126,
+      "Flow Packets/s": 3.783,
+      "SYN Flag Count": 0,
+      "Label": "DDoS"
+    },
+    {
+      "Destination Port": 53,
+      "Flow Duration": 169,
+      "Total Fwd Packets": 2,
+      "Total Backward Packets": 2,
+      "Flow Bytes/s": 899408.284,
+      "Flow Packets/s": 23668.639,
+      "SYN Flag Count": 0,
+      "Label": "BENIGN"
+    },
+    {
+      "Destination Port": 53,
+      "Flow Duration": 24182,
+      "Total Fwd Packets": 1,
+      "Total Backward Packets": 1,
+      "Flow Bytes/s": 8353.321,
+      "Flow Packets/s": 82.706,
+      "SYN Flag Count": 0,
+      "Label": "BENIGN"
+    },
+    {
+      "Destination Port": 80,
+      "Flow Duration": 5154945,
+      "Total Fwd Packets": 5,
+      "Total Backward Packets": 0,
+      "Flow Bytes/s": 5.82,
+      "Flow Packets/s": 0.97,
+      "SYN Flag Count": 0,
+      "Label": "DDoS"
+    },
+    {
+      "Destination Port": 80,
+      "Flow Duration": 1778957,
+      "Total Fwd Packets": 3,
+      "Total Backward Packets": 4,
+      "Flow Bytes/s": 6535.852,
+      "Flow Packets/s": 3.935,
+      "SYN Flag Count": 0,
+      "Label": "DDoS"
+    },
+    {
+      "Destination Port": 80,
+      "Flow Duration": 5920863,
+      "Total Fwd Packets": 4,
+      "Total Backward Packets": 0,
+      "Flow Bytes/s": 4.053,
+      "Flow Packets/s": 0.676,
+      "SYN Flag Count": 0,
+      "Label": "DDoS"
+    }
+  ]
+}
