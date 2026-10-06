@@ -1,10 +1,13 @@
 # Cloud-Based ML DDoS/Intrusion Detection Service
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/RohithDharshan/Cloud-DDoS-Detector)
+
 Team project for Cloud Computing (23N014) — implementation based on:
 
 > S. Abiramasundari and V. Ramaswamy, "Distributed denial-of-service (DDOS) attack
 > detection using supervised machine learning algorithms," *Scientific Reports*,
 > vol. 15, art. 13098, 2025. DOI: [10.1038/s41598-024-84879-y](https://doi.org/10.1038/s41598-024-84879-y)
+> (open access, CC BY 4.0 — full PDF in [`docs/paper/`](docs/paper/)).
 
 The paper compares SVM, Logistic Regression, Random Forest, KNN, and Decision Tree
 on CICIDS2017 / CICIDS2018 / CICDDoS2019, using StandardScaler + PCA preprocessing
@@ -14,12 +17,26 @@ pipeline and wraps the trained model as a real-time monitoring microservice —
 the "innovate on top of it" part of the assignment, since the paper itself
 stops at offline model evaluation and doesn't build a deployable service.
 
+**See [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) for a step-by-step mapping
+of exactly which paper method each file in this repo implements, and how our real
+results compare to the paper's.**
+
+## Live deployment
+
+Click the "Deploy to Render" button above to spin up your own instance (free tier,
+no credit card required — Render auto-detects `render.yaml` and the `Dockerfile`).
+Render connects to your GitHub account once, then builds and deploys this repo
+directly; the live URL it gives you serves the same dashboard as running locally.
+
 ## What's here
 
 ```
 ddos-cloud-detector/
 ├── requirements.txt
-├── Dockerfile / docker-compose.yml / .dockerignore
+├── Dockerfile / docker-compose.yml / .dockerignore / render.yaml
+├── docs/
+│   ├── IMPLEMENTATION.md        # paper-to-code mapping, the "we implemented it" evidence
+│   └── paper/                   # the reference paper's open-access PDF
 ├── data/raw/                    # dataset CSVs live here (gitignored size-wise)
 ├── model/artifacts/             # trained model + fitted scaler/PCA + metrics
 └── src/
@@ -151,6 +168,12 @@ a claim of beating the paper.
 - [x] Swap in the real CICIDS2017 file (Friday-afternoon DDoS capture, 225,745
       real flows) and retrain — `model/artifacts/metrics.json` above is the
       real result.
+- [x] Document the paper-to-code mapping (`docs/IMPLEMENTATION.md`) with the
+      paper's PDF in the repo as evidence.
+- [ ] **Click the "Deploy to Render" button above** (one team member, 2 minutes)
+      to get a public live URL — Render needs a GitHub login the first time,
+      which only a human can do; everything else is already configured
+      (`render.yaml` + `Dockerfile`).
 - [ ] Write the report itself (methodology, comparison to the paper, your
       "service" contribution as the innovation on top of it, screenshots of
       the demo).

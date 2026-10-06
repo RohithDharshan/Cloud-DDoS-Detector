@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cloud-ddos-detector
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ARTIFACTS_DIR
+        value: model/artifacts
+      - key: FRONTEND_DIR
+        value: frontend
