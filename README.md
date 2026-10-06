@@ -23,6 +23,12 @@ results compare to the paper's.**
 
 ## Live deployment
 
+**Live now: [cloud-ddos-detector.onrender.com](https://cloud-ddos-detector.onrender.com/)**
+— the real dashboard, running on Render's cloud infrastructure, not localhost.
+(Free tier: it spins down after 15 minutes idle and takes ~30-50s to wake back up
+on the first request — normal, not a bug. Worth a warm-up click a minute before
+presenting.)
+
 Click the "Deploy to Render" button above to spin up your own instance (free tier,
 no credit card required — Render auto-detects `render.yaml` and the `Dockerfile`).
 Render connects to your GitHub account once, then builds and deploys this repo
