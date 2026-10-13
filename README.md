@@ -21,6 +21,10 @@ stops at offline model evaluation and doesn't build a deployable service.
 of exactly which paper method each file in this repo implements, and how our real
 results compare to the paper's.**
 
+**Presentation deck: [`docs/presentation/Cloud_DDoS_Detector.pptx`](docs/presentation/Cloud_DDoS_Detector.pptx)**
+— 11 slides, same numbers and architecture as this README, built for a 2-PPT-presenters
++ 1-live-demo-presenter split (see the deck's slide numbers for who covers what).
+
 ## Live deployment
 
 **Live now: [cloud-ddos-detector.onrender.com](https://cloud-ddos-detector.onrender.com/)**
@@ -42,7 +46,8 @@ ddos-cloud-detector/
 ├── Dockerfile / docker-compose.yml / .dockerignore / render.yaml
 ├── docs/
 │   ├── IMPLEMENTATION.md        # paper-to-code mapping, the "we implemented it" evidence
-│   └── paper/                   # the reference paper's open-access PDF
+│   ├── paper/                   # the reference paper's open-access PDF
+│   └── presentation/            # the 11-slide .pptx deck for the Oct 1 presentation
 ├── data/raw/                    # dataset CSVs live here (gitignored size-wise)
 ├── model/artifacts/             # trained model + fitted scaler/PCA + metrics
 └── src/
